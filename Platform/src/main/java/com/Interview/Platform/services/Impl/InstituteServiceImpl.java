@@ -35,6 +35,9 @@ public class InstituteServiceImpl implements InstituteService {
         if (userRepository.findByEmail(dto.email()).isPresent()) {
             throw new RuntimeException("Email already registered");
         }
+        if (instituteRepository.existsByInstituteCode(dto.instituteCode())) {
+    throw new RuntimeException("Institute code already exists");
+}
 
         // 3. Create User (TPO/Admin)
         User user = new User();

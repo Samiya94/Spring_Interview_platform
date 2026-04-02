@@ -15,8 +15,8 @@ const showRegNote = {
 };
 
 const regNoteTexts = {
-  Interviewer: 'Not registered yet? <a href="register.html">Join as an Interviewer</a>',
-  Institute:   'Not registered yet? <a href="register.html">Register your Institute</a>',
+  Interviewer: 'Not registered yet? <a href="/register">Join as an Interviewer</a>',
+  Institute:   'Not registered yet? <a href="/register">Register your Institute</a>',
   Mentor:      '<i class="fa-solid fa-circle-info"></i> Mentor access is invite-only. Your account is created by your Institute from their dashboard.',
 };
 
@@ -66,37 +66,13 @@ function clearError() {
   document.getElementById('passwordInput').classList.remove('error');
 }
 
-/* ── INSTITUTE LOGIN ── */
-function loginAsInstitute(email, password) {
-  const allKeys   = Object.keys(localStorage).filter(k => k.startsWith('tpoCoordinators_'));
-  const allCoords = allKeys.flatMap(k => JSON.parse(localStorage.getItem(k)) || []);
-  const match     = allCoords.find(c =>
-    c.email.toLowerCase() === email.toLowerCase() && c.password === password
-  );
-  if (match) {
-    localStorage.setItem('currentTPO',       JSON.stringify(match));
-    localStorage.setItem('currentInstitute', JSON.stringify(match));
-    localStorage.setItem('loggedInUser',     JSON.stringify({ ...match, role: 'Institute' }));
-    window.location.href = 'institute-dashboard.html';
-    return;
-  }
-  if (!allCoords.length) {
-    showError('No Institute accounts found. Please register your institute first.');
-  } else if (!allCoords.find(c => c.email.toLowerCase() === email.toLowerCase())) {
-    showError('Email not found. Please check your email or register.');
-    document.getElementById('emailInput').classList.add('error');
-  } else {
-    showError('Incorrect password. Please try again.');
-    document.getElementById('passwordInput').classList.add('error');
-  }
-}
 
 /* ── MAIN LOGIN HANDLER ── */
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   clearError();
 
-  const email    = document.getElementById('emailInput').value.trim();
+  const email = document.getElementById('emailInput').value.trim();
   const password = document.getElementById('passwordInput').value;
 
   if (!email || !password) {
@@ -104,33 +80,33 @@ function handleLogin(event) {
     return;
   }
 
-  if (currentRole === 'Institute') {
-    loginAsInstitute(email, password);
-    return;
-  }
+  try {
+    const response = await fetch("/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: email,
+        password: password,
+        role: currentRole
+      })
+    });
 
-  const users = JSON.parse(localStorage.getItem('users')) || [];
-  const match = users.find(u =>
-    u.email === email && u.password === password && u.role === currentRole
-  );
+    if (response.ok) {
+      const data = await response.json();
 
-  if (match) {
-    localStorage.setItem('loggedInUser', JSON.stringify(match));
-    const destinations = {
-      Student:     'student-dashboard.html',
-      Interviewer: 'interviewer-dashboard.html',
-      Mentor:      'mentor-dashboard.html',
-    };
-    window.location.href = destinations[currentRole] || 'index.html';
-  } else {
-    const emailExists = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!emailExists) {
-      showError('Email not found. Please check your email or register.');
-      document.getElementById('emailInput').classList.add('error');
+  // optional success message
+  showModal("Login successful", data.role);
+
     } else {
-      showError('Incorrect password or role mismatch. Please try again.');
-      document.getElementById('passwordInput').classList.add('error');
+      const err = await response.text();
+      showError(err);
     }
+
+  } catch (error) {
+    console.error(error);
+    showError("Server error");
   }
 }
 
@@ -148,3 +124,33 @@ window.addEventListener('DOMContentLoaded', () => {
     if (btn) selectRole(param.charAt(0).toUpperCase() + param.slice(1), btn);
   }
 });
+let redirectUrl = null;
+
+function showModal(message, role) {
+  document.getElementById("modalMessage").textContent = message;
+  document.getElementById("successModal").classList.add("show");
+
+  if (role === "INTERVIEWER") {
+    redirectUrl = "/interviewer-dashboard";
+  } else if (role === "INSTITUTE") {
+    redirectUrl = "/institute-dashboard";
+  } else if (role === "STUDENT") {
+    redirectUrl = "/student-dashboard";
+  } else {
+    redirectUrl = "/";
+  }
+
+  setTimeout(() => {
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    }
+  }, 2000);
+}
+
+function closeModal() {
+  document.getElementById("successModal").classList.remove("show");
+
+  if (redirectUrl) {
+    window.location.href = redirectUrl;
+  }
+}

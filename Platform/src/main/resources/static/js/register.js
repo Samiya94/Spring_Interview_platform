@@ -93,44 +93,63 @@ async function handleSubmit(e, role){
     return;
   }
 
-  // ✅ Convert form to JSON
-  const formData = new FormData(form);
-  const data = Object.fromEntries(formData.entries());
-
-  // ✅ SPECIAL: Add skills (for interviewer)
-  if(role === 'interviewer'){
-    const skills = Array.from(document.querySelectorAll('#skills-tags-wrap .tag-chip'))
-      .map(tag => tag.textContent.replace('×','').trim());
-
-    data.skills = skills;
-  }
-
-  console.log("Sending Data:", data); // 🔍 debug
-
-  // ✅ SEND TO BACKEND
   try {
-    const response = await fetch(`/register/${role}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(data)
-    });
 
-    if(response.ok){
-  const msgs={
-    institute:'Institute registered successfully!',
-    interviewer:'Interviewer registered successfully!'
-  };
+    // =========================
+    // 🏫 INSTITUTE (JSON)
+    // =========================
+    if(role === 'institute'){
 
-  showToast(msgs[role],'success');
-  form.reset();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
 
-  // Redirect after 2 seconds
-  setTimeout(() => {
-    window.location.href = "/login";
-  }, 2000);
-}
+      const response = await fetch(`/register/institute`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      if(response.ok){
+        showToast('Institute registered successfully!','success');
+        form.reset();
+      }
+
+    }
+
+    // =========================
+    // 👨‍💼 INTERVIEWER (FormData)
+    // =========================
+    if(role === 'interviewer'){
+
+      const formData = new FormData(form);
+
+      // ✅ Skills fix
+      const skills = Array.from(document.querySelectorAll('#skills-tags-wrap .tag-chip'))
+        .map(tag => tag.textContent.replace('×','').trim());
+
+      formData.delete("skills");
+
+      skills.forEach(skill => {
+        formData.append("skills", skill);
+      });
+
+      const response = await fetch(`/register/interviewer`, {
+        method: "POST",
+        body: formData   // 🚨 NO headers
+      });
+
+      if(response.ok){
+        showToast('Interviewer registered successfully!','success');
+        form.reset();
+      }
+    }
+
+    // Redirect
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 2000);
 
   } catch (error) {
     console.error(error);
